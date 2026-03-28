@@ -5,7 +5,7 @@ from config import SCRAPE_INTERVAL_SECONDS
 from scrapers.au9999 import get_au9999
 from scrapers.xauusd import get_xauusd
 from scrapers.usdcny import get_usdcny
-from redis_client import save_current_price, append_price_history
+from redis_client import save_current_price, append_price_history, get_current_price
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +63,55 @@ def start_scheduler() -> None:
         id="price_scrape",
         max_instances=1,
     )
+    scheduler.add_job(
+        save_daily_snapshot,
+        "cron",
+        hour=15, minute=30,
+        timezone="Asia/Shanghai",
+        id="daily_snapshot",
+        max_instances=1,
+    )
     scheduler.start()
+
+
+async def save_daily_snapshot() -> None:
+    """每日 15:30（上海黄金交易所收盘）记录当天持仓快照"""
+    import datetime
+    from database import SessionLocal
+    from models import Transaction, DailySnapshot
+    from api.pnl import calculate_summary
+
+    db = SessionLocal()
+    try:
+        txs = db.query(Transaction).all()
+        tx_dicts = [
+            {"id": t.id, "date": t.date, "type": t.type,
+             "grams": t.grams, "price_per_g": t.price_per_g, "fee": t.fee}
+            for t in txs
+        ]
+        price_data = await get_current_price("au9999")
+        if not price_data:
+            return
+        current_price = price_data["price"]
+        summary = calculate_summary(tx_dicts, current_price)
+
+        today = datetime.date.today()
+        existing = db.query(DailySnapshot).filter(DailySnapshot.date == today).first()
+        if existing:
+            existing.grams = summary["total_grams"]
+            existing.price_per_g = current_price
+            existing.market_value = summary["market_value"]
+        else:
+            snapshot = DailySnapshot(
+                date=today,
+                grams=summary["total_grams"],
+                price_per_g=current_price,
+                market_value=summary["market_value"],
+            )
+            db.add(snapshot)
+        db.commit()
+    finally:
+        db.close()
 
 
 def stop_scheduler() -> None:
