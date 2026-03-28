@@ -1,6 +1,3 @@
-from typing import Any
-
-
 def calculate_summary(transactions: list[dict], current_price: float) -> dict:
     """
     按时间顺序（date + id 升序）遍历交易记录，使用加权均价法计算持仓汇总。
@@ -22,7 +19,9 @@ def calculate_summary(transactions: list[dict], current_price: float) -> dict:
             pnl = tx["grams"] * (tx["price_per_g"] - avg_cost) - tx["fee"]
             realized_pnl += pnl
             total_grams -= tx["grams"]
-            if total_grams <= 1e-9:   # 浮点保护：视为清零
+            if total_grams < -1e-9:   # 超卖保护
+                raise ValueError(f"Sell of {tx['grams']}g exceeds holding at tx id={tx['id']}")
+            if total_grams <= 1e-9:   # 浮点保护：视为清零（< 1纳克视为零）
                 total_grams = 0.0
                 avg_cost = 0.0
 
