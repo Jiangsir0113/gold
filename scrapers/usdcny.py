@@ -15,9 +15,10 @@ async def get_usdcny() -> dict:
     if not match:
         raise ValueError("Sina USD/CNY parse error")
     parts = match.group(1).split(",")
-    if not parts or not parts[0]:
+    # 新浪汇率格式: 时间,买入价,卖出价,中间价,...
+    if len(parts) < 4:
         raise ValueError(f"Sina USD/CNY unexpected format: {match.group(1)!r}")
-    price = float(parts[0])
+    price = float(parts[3])
     return {
         "price": price,
         "updated_at": datetime.datetime.now().isoformat(timespec="seconds"),

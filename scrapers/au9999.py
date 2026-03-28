@@ -11,7 +11,7 @@ from scrapers.base import fetch
 
 logger = logging.getLogger(__name__)
 
-PRIMARY_URL = "https://push2.eastmoney.com/api/qt/stock/get?secid=0.Au9999&fields=f43,f169,f170"
+PRIMARY_URL = "https://push2.eastmoney.com/api/qt/stock/get?secid=118.Au9999&fields=f43,f169,f170"
 BACKUP_URL = "https://hq.sinajs.cn/list=Au9999"
 
 
