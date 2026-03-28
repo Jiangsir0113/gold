@@ -1,4 +1,4 @@
-import asyncio
+import json
 import logging
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from config import SCRAPE_INTERVAL_SECONDS
@@ -44,13 +44,13 @@ async def scrape_and_broadcast() -> None:
 
     # 广播到所有 WebSocket 客户端
     if connected_clients and results:
-        import json
         message = json.dumps({"type": "price_update", "data": results})
         dead = set()
         for ws in connected_clients:
             try:
                 await ws.send_text(message)
-            except Exception:
+            except Exception as e:
+                logger.debug("WebSocket send failed, removing client: %s", e)
                 dead.add(ws)
         connected_clients.difference_update(dead)
 
