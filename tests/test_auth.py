@@ -10,7 +10,7 @@ app = FastAPI()
 async def test_endpoint(key=Depends(require_api_key)):
     return {"ok": True}
 
-client = TestClient(app, raise_server_exceptions=False)
+client = TestClient(app)
 
 def test_missing_api_key_returns_401():
     resp = client.get("/test")
@@ -25,3 +25,8 @@ def test_correct_api_key_passes():
     with patch("auth.API_KEY", "correct-key"):
         resp = client.get("/test", headers={"X-API-Key": "correct-key"})
     assert resp.status_code == 200
+
+def test_empty_api_key_returns_401():
+    with patch("auth.API_KEY", "correct-key"):
+        resp = client.get("/test", headers={"X-API-Key": ""})
+    assert resp.status_code == 401
