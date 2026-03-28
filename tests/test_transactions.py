@@ -1,11 +1,16 @@
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
-from main import app
+from api.transactions import router as transactions_router
 from database import engine, Base
 
+# Create a test app without the Redis/scheduler lifespan
+test_app = FastAPI()
+test_app.include_router(transactions_router)
+
 Base.metadata.create_all(bind=engine)
-client = TestClient(app)
+client = TestClient(test_app)
 HEADERS = {"X-API-Key": "test-key"}
 BUY_PAYLOAD = {"date": "2026-03-28", "type": "buy", "grams": 10.0, "price_per_g": 700.0, "fee": 5.0, "note": "首次买入"}
 

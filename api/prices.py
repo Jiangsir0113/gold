@@ -1,9 +1,11 @@
 # api/prices.py
 import json
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
+import secrets
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends, HTTPException
 from auth import require_api_key
 from redis_client import get_current_price, get_price_history
 from scheduler import connected_clients
+from config import API_KEY
 
 router = APIRouter()
 
@@ -12,8 +14,7 @@ router = APIRouter()
 async def ws_prices(websocket: WebSocket):
     """实时价格 WebSocket。握手时验证 X-API-Key query 参数"""
     api_key = websocket.query_params.get("api_key", "")
-    from config import API_KEY
-    if api_key != API_KEY:
+    if not api_key or not secrets.compare_digest(api_key, API_KEY):
         await websocket.close(code=1008)  # Policy Violation
         return
 
@@ -32,7 +33,7 @@ async def ws_prices(websocket: WebSocket):
     try:
         while True:
             await websocket.receive_text()  # 保持连接
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, Exception):
         connected_clients.discard(websocket)
 
 
@@ -51,6 +52,6 @@ async def get_latest_prices():
 async def get_history(symbol: str = "au9999"):
     """获取当日价格历史（用于走势图）"""
     if symbol not in ("au9999", "xauusd"):
-        return {"error": "symbol must be au9999 or xauusd"}
+        raise HTTPException(status_code=422, detail="symbol must be au9999 or xauusd")
     items = await get_price_history(symbol)
     return {"symbol": symbol, "history": items}

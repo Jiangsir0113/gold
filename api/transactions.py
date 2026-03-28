@@ -36,6 +36,13 @@ class TransactionIn(BaseModel):
             raise ValueError("must be positive")
         return v
 
+    @field_validator("fee")
+    @classmethod
+    def validate_fee(cls, v):
+        if v < 0:
+            raise ValueError("fee must be non-negative")
+        return v
+
 
 def _tx_to_dict(tx: Transaction) -> dict:
     return {
