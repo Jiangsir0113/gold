@@ -1,3 +1,4 @@
+import datetime
 import json
 import time
 from typing import Optional
@@ -13,12 +14,15 @@ async def init_redis() -> None:
 
 
 async def close_redis() -> None:
+    global _redis
     if _redis:
         await _redis.aclose()
+        _redis = None
 
 
 def get_redis() -> aioredis.Redis:
-    assert _redis is not None, "Redis not initialized"
+    if _redis is None:
+        raise RuntimeError("Redis not initialized. Call init_redis() at startup.")
     return _redis
 
 
@@ -35,19 +39,19 @@ async def get_current_price(symbol: str) -> Optional[dict]:
 
 async def append_price_history(symbol: str, price: float) -> None:
     """将当前价格追加到当日历史 Sorted Set，score 为 Unix 时间戳"""
-    import datetime
     r = get_redis()
     today = datetime.date.today().isoformat()
     key = f"price_history:{symbol}:{today}"
     ts = int(time.time())
     entry = json.dumps({"price": price, "ts": ts})
-    await r.zadd(key, {entry: ts})
-    await r.expire(key, HISTORY_TTL_SECONDS)
+    async with r.pipeline() as pipe:
+        await pipe.zadd(key, {entry: ts})
+        await pipe.expire(key, HISTORY_TTL_SECONDS)
+        await pipe.execute()
 
 
 async def get_price_history(symbol: str) -> list[dict]:
     """获取当日价格历史，按时间升序"""
-    import datetime
     r = get_redis()
     today = datetime.date.today().isoformat()
     key = f"price_history:{symbol}:{today}"

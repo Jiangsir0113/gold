@@ -3,6 +3,7 @@ import time
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from redis_client import save_current_price, get_current_price, append_price_history, get_price_history
+from config import PRICE_TTL_SECONDS
 
 
 def make_mock_redis():
@@ -29,7 +30,9 @@ async def test_save_and_get_current_price():
 
     assert result["price"] == 765.50
     assert result["change_pct"] == 0.30
-    mock_redis.set.assert_called_once()
+    expected_key = "price:current:au9999"
+    expected_value = json.dumps(data)
+    mock_redis.set.assert_called_once_with(expected_key, expected_value, ex=PRICE_TTL_SECONDS)
 
 
 @pytest.mark.asyncio
@@ -45,14 +48,21 @@ async def test_get_current_price_returns_none_when_missing():
 @pytest.mark.asyncio
 async def test_append_price_history_writes_sorted_set():
     mock_redis = make_mock_redis()
+    mock_pipe = MagicMock()
+    mock_pipe.zadd = AsyncMock()
+    mock_pipe.expire = AsyncMock()
+    mock_pipe.execute = AsyncMock()
+    mock_pipe.__aenter__ = AsyncMock(return_value=mock_pipe)
+    mock_pipe.__aexit__ = AsyncMock(return_value=False)
+    mock_redis.pipeline = MagicMock(return_value=mock_pipe)
 
     with patch("redis_client.get_redis", return_value=mock_redis):
         await append_price_history("au9999", 765.50)
 
-    mock_redis.zadd.assert_called_once()
-    mock_redis.expire.assert_called_once()
+    mock_pipe.zadd.assert_called_once()
+    mock_pipe.expire.assert_called_once()
     # 验证写入的 key 格式正确
-    call_args = mock_redis.zadd.call_args
+    call_args = mock_pipe.zadd.call_args
     assert "price_history:au9999:" in call_args[0][0]
 
 
