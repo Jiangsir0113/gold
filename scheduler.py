@@ -91,11 +91,12 @@ async def save_daily_snapshot() -> None:
         ]
         price_data = await get_current_price("au9999")
         if not price_data:
+            logger.warning("save_daily_snapshot: no AU9999 price in Redis, skipping snapshot")
             return
         current_price = price_data["price"]
         summary = calculate_summary(tx_dicts, current_price)
 
-        today = datetime.date.today()
+        today = datetime.datetime.now(tz=datetime.timezone(datetime.timedelta(hours=8))).date()
         existing = db.query(DailySnapshot).filter(DailySnapshot.date == today).first()
         if existing:
             existing.grams = summary["total_grams"]
