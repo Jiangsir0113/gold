@@ -15,6 +15,8 @@ async def get_usdcny() -> dict:
     if not match:
         raise ValueError("Sina USD/CNY parse error")
     parts = match.group(1).split(",")
+    if not parts or not parts[0]:
+        raise ValueError(f"Sina USD/CNY unexpected format: {match.group(1)!r}")
     price = float(parts[0])
     return {
         "price": price,

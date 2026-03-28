@@ -6,7 +6,10 @@ AU9999 国内现货金价爬虫
 import json
 import re
 import datetime
+import logging
 from scrapers.base import fetch
+
+logger = logging.getLogger(__name__)
 
 PRIMARY_URL = "https://push2.eastmoney.com/api/qt/stock/get?secid=0.Au9999&fields=f43,f169,f170"
 BACKUP_URL = "https://hq.sinajs.cn/list=Au9999"
@@ -16,7 +19,8 @@ async def get_au9999() -> dict:
     """返回 {price, change, change_pct, updated_at}，失败时抛出异常"""
     try:
         return await _from_eastmoney()
-    except Exception:
+    except Exception as exc:
+        logger.warning("au9999 primary source failed (%s), trying backup", exc)
         return await _from_sina()
 
 
